@@ -278,7 +278,7 @@ export default function Dashboard() {
             const hasCustomOffer = status.includes('custom offer');
             const hasQuoted = status.includes('quote') || status.includes('qoute');
             const hasConverted = status.includes('converted') || status.includes('direct order');
-            const isTotalQuery = (hasConvRunning || hasCustomOffer || isNegative) && !hasBrief;
+            const isTotalQuery = !hasBrief;
 
             const rowData = {
               clientName: clientNameIdx !== -1 ? String(raw[i][clientNameIdx] || '').trim() : '',
