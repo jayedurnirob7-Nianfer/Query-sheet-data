@@ -232,13 +232,13 @@ export default function Dashboard() {
             totalQuery: 0, freshQuery: 0, 
             totalBrief: 0, freshBrief: 0, 
             passSpam: 0, quoteSent: 0, 
-            converted: 0, briefConverted: 0, queryConverted: 0
+            converted: 0, briefConverted: 0, queryConverted: 0, directOrder: 0
           });
 
           // Drilldown arrays store raw row objects for each metric
           const drilldown = {
             totalQuery: [], freshQuery: [], totalBrief: [], freshBrief: [],
-            passSpam: [], quoteSent: [], converted: [], briefConverted: [], queryConverted: []
+            passSpam: [], quoteSent: [], converted: [], briefConverted: [], queryConverted: [], directOrder: []
           };
 
           let currentDay = '';
@@ -291,13 +291,15 @@ export default function Dashboard() {
               sellerName: seller
             };
 
+            const isDirectOrder = status.includes('direct order');
+
             const pushDrilldown = (metric) => { drilldown[metric].push(rowData); };
 
             // Only push to drilldown ONCE per row
             if (isNegative) pushDrilldown('passSpam');
             if (isTotalQuery) {
                pushDrilldown('totalQuery');
-               if (!isNegative) pushDrilldown('freshQuery');
+               if (!isNegative && !isDirectOrder) pushDrilldown('freshQuery');
             }
             if (hasBrief) {
                pushDrilldown('totalBrief');
@@ -309,12 +311,13 @@ export default function Dashboard() {
                if (isTotalQuery) pushDrilldown('queryConverted');
             }
             if (hasQuoted && !isNegative) pushDrilldown('quoteSent');
+            if (isDirectOrder) pushDrilldown('directOrder');
 
             const increment = (p) => {
               if (isNegative) p.passSpam += 1;
               if (isTotalQuery) {
                  p.totalQuery += 1;
-                 if (!isNegative) p.freshQuery += 1;
+                 if (!isNegative && !isDirectOrder) p.freshQuery += 1;
               }
               if (hasBrief) {
                  p.totalBrief += 1;
@@ -326,6 +329,7 @@ export default function Dashboard() {
                  if (isTotalQuery) p.queryConverted += 1;
               }
               if (hasQuoted && !isNegative) p.quoteSent += 1;
+              if (isDirectOrder) p.directOrder += 1;
             };
 
             if (profile) {
@@ -604,7 +608,7 @@ export default function Dashboard() {
   const d = currentTab.drilldown;
   const volumeKpis = [
     { label:'Total Queries',       value: totals.totalQuery,  icon:'📋', color:'accent', tooltip: 'Rows with "Conversation Running" or "Custom Offer", plus rows with negative tags (Pass, Spam, Indian, etc). Excludes any row containing "Brief".', onClick: d ? () => setSelectedDrilldown({ title: 'Total Queries', rows: d.totalQuery }) : null },
-    { label:'Fresh Queries',       value: totals.freshQuery,  icon:'🌱', color:'green',  tooltip: 'Total Queries that do NOT contain any negative tags (Pass, Spam, Gone, Indian/Pakistani, Seller Message).', onClick: d ? () => setSelectedDrilldown({ title: 'Fresh Queries', rows: d.freshQuery }) : null },
+    { label:'Fresh Queries',       value: totals.freshQuery,  icon:'🌱', color:'green',  tooltip: 'Total Queries that do NOT contain any negative tags, and also excludes Direct Orders.', onClick: d ? () => setSelectedDrilldown({ title: 'Fresh Queries', rows: d.freshQuery }) : null },
     { label:'Total Briefs',        value: totals.totalBrief,  icon:'📝', color:'accent', tooltip: 'Any row containing the "Brief" tag.', onClick: d ? () => setSelectedDrilldown({ title: 'Total Briefs', rows: d.totalBrief }) : null },
     { label:'Fresh Briefs',        value: totals.freshBrief,  icon:'✨', color:'yellow', tooltip: 'Briefs that do NOT contain any negative tags (Pass, Spam, Gone, Indian/Pakistani, Seller Message).', onClick: d ? () => setSelectedDrilldown({ title: 'Fresh Briefs', rows: d.freshBrief }) : null },
     { label:'Quotes Sent',         value: totals.quoteSent,   icon:'📨', color:'accent', tooltip: 'Rows with Quote tags, excluding any rows that contain negative tags.', onClick: d ? () => setSelectedDrilldown({ title: 'Quotes Sent', rows: d.quoteSent }) : null },
@@ -615,6 +619,7 @@ export default function Dashboard() {
     { label:'Total Converted',     value: totals.converted,      icon:'🏆', color:'green',  tooltip: 'Rows containing "Converted" or "Direct Order" tags.', onClick: d ? () => setSelectedDrilldown({ title: 'Total Converted', rows: d.converted }) : null },
     { label:'Query Converted',     value: totals.queryConverted, icon:'✅', color:'green',  tooltip: 'Rows containing "Converted" that also qualified as a Total Query.', onClick: d ? () => setSelectedDrilldown({ title: 'Query Converted', rows: d.queryConverted }) : null },
     { label:'Brief Converted',     value: totals.briefConverted, icon:'✅', color:'green',  tooltip: 'Rows containing "Converted" that also contained "Brief".', onClick: d ? () => setSelectedDrilldown({ title: 'Brief Converted', rows: d.briefConverted }) : null },
+    { label:'Direct Orders',       value: totals.directOrder,    icon:'⚡', color:'accent', tooltip: 'Rows containing "Direct Order" tag.', onClick: d ? () => setSelectedDrilldown({ title: 'Direct Orders', rows: d.directOrder }) : null },
   ];
 
   const rateKpis = [
