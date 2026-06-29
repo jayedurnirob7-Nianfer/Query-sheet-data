@@ -59,6 +59,9 @@ function parseSheetRow(headers, row) {
 
 const REFRESH_MS = 60 * 60 * 1000; // 1 hour
 
+// Paste your Google Apps Script URL here to make it load automatically on all devices
+const INBUILT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz2oraDZy3Dpo8WgCyq-nEsJ9tvvrdgm19AmzIqPBBCRQI5cYp5OYQzqkuitrGbajBP/exec';
+
 export default function Dashboard() {
   const [tabsData,    setTabsData]    = useState([]);
   const [activeTab,   setActiveTab]   = useState(0);
@@ -93,12 +96,12 @@ export default function Dashboard() {
         } catch(e) { console.error('Failed to parse cache', e); }
       }
 
-      const url = localStorage.getItem('mein_script_url') || '';
+      const url = INBUILT_SCRIPT_URL || localStorage.getItem('mein_script_url') || '';
       if (url) fetchFromScript(url);
 
       const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 60), 60000);
       const refresh = setInterval(() => {
-        const u = localStorage.getItem('mein_script_url') || '';
+        const u = INBUILT_SCRIPT_URL || localStorage.getItem('mein_script_url') || '';
         if (u) fetchFromScript(u);
       }, REFRESH_MS);
 
@@ -473,7 +476,7 @@ export default function Dashboard() {
   };
 
   const handleRefresh = () => {
-    const url = localStorage.getItem('mein_script_url') || '';
+    const url = INBUILT_SCRIPT_URL || localStorage.getItem('mein_script_url') || '';
     if (!url) { setShowSettings(true); return; }
     fetchFromScript(url);
   };
@@ -699,22 +702,24 @@ export default function Dashboard() {
           </button>
 
           {/* Settings button */}
-          <button
-            id="btn-settings"
-            onClick={() => setShowPasswordPrompt(true)}
-            style={{
-              padding:'7px 16px', borderRadius:'8px',
-              border:'1px solid var(--border)',
-              background:'var(--bg-card)', color:'var(--text-primary)',
-              fontSize:'0.82rem', fontWeight:500, cursor:'pointer',
-              display:'flex', alignItems:'center', gap:'6px',
-              transition:'all 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.color='var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--text-primary)'; }}
-          >
-            ⚙️ Settings
-          </button>
+          {!INBUILT_SCRIPT_URL && (
+            <button
+              id="btn-settings"
+              onClick={() => setShowPasswordPrompt(true)}
+              style={{
+                padding:'7px 16px', borderRadius:'8px',
+                border:'1px solid var(--border)',
+                background:'var(--bg-card)', color:'var(--text-primary)',
+                fontSize:'0.82rem', fontWeight:500, cursor:'pointer',
+                display:'flex', alignItems:'center', gap:'6px',
+                transition:'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.color='var(--accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--text-primary)'; }}
+            >
+              ⚙️ Settings
+            </button>
+          )}
         </div>
       </header>
 
