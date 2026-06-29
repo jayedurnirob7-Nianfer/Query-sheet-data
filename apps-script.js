@@ -1,35 +1,36 @@
 // ============================================================
-// MEIN QUERY SHEET — Apps Script Backend (V5 - INSTANT CACHE)
+// MEIN QUERY SHEET — Apps Script Backend (V6 - DIRECT READ)
 // ============================================================
 // SETUP INSTRUCTIONS:
-// 1. Open YOUR Google Sheet (where your data is)
+// 1. Open your BACKEND Google Sheet
 // 2. Extensions → Apps Script → paste this entire script
 // 3. Click "Deploy" → "New Deployment" → Type: Web App
 //    - Execute as: Me
 //    - Who has access: Anyone
-// 4. Copy the Web App URL → paste into dashboard Settings
-//
-// NOTE: This version uses a high-performance Chunked Cache.
-// It responds in ~50ms. It automatically clears the cache 
-// the moment you edit anything in the spreadsheet!
+// 
+// NOTE: This version ignores your backend sheet entirely.
+// It reaches directly into the MAIN sheet for live data,
+// bypassing the frozen IMPORTRANGE delay. It caches for exactly
+// 60 seconds to remain ultra-fast while staying real-time.
 // ============================================================
 
-const CACHE_KEY = 'mein_query_v5';
+const CACHE_KEY = 'mein_query_v6_direct';
+const MAIN_SHEET_ID = '1-7apj6Sg-kJktfcMZoi44Srq5spgpCr0z0G71rqtqGQ';
 
 function doGet(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
 
   try {
-    // 1. Check Cache
+    // 1. Check Cache (1 minute cache for real-time speed)
     const cachedData = getCachedData(CACHE_KEY);
     if (cachedData) {
       output.setContent(cachedData);
       return output;
     }
 
-    // 2. Not cached, read from Sheet
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    // 2. Read directly from the MAIN Sheet (bypasses IMPORTRANGE)
+    const ss = SpreadsheetApp.openById(MAIN_SHEET_ID);
     const sheets = ss.getSheets();
     const tabsData = [];
 
@@ -60,7 +61,7 @@ function doGet(e) {
       lastSync: new Date().toISOString() 
     });
 
-    // 3. Save to Cache
+    // 3. Save to Cache for 60 seconds (Live data!)
     putCachedData(CACHE_KEY, resultString);
 
     output.setContent(resultString);
@@ -71,17 +72,12 @@ function doGet(e) {
   return output;
 }
 
-// Automatically clears the cache whenever you edit the Google Sheet!
-function onEdit(e) {
-  CacheService.getScriptCache().remove(CACHE_KEY + '_meta');
-}
-
 // Helper to bypass 100KB cache limit by chunking
 function putCachedData(key, stringData) {
   const cache = CacheService.getScriptCache();
   const chunkSize = 90000; // Safe size under 100KB
   const chunks = Math.ceil(stringData.length / chunkSize);
-  if (chunks > 15) return; // If over ~1.3MB, skip caching to avoid memory limits
+  if (chunks > 15) return; 
   
   const cacheData = {};
   for (let i = 0; i < chunks; i++) {
@@ -89,8 +85,8 @@ function putCachedData(key, stringData) {
   }
   cacheData[key + '_meta'] = chunks.toString();
   
-  // Cache for 6 hours (max). It gets cleared by onEdit anyway.
-  cache.putAll(cacheData, 21600); 
+  // Cache for exactly 60 seconds
+  cache.putAll(cacheData, 60); 
 }
 
 // Helper to retrieve chunked cache
@@ -107,7 +103,7 @@ function getCachedData(key) {
   let fullString = '';
   for (let i = 0; i < chunks; i++) {
     const chunk = cacheData[key + '_' + i];
-    if (!chunk) return null; // Cache expired or dropped a chunk
+    if (!chunk) return null; 
     fullString += chunk;
   }
   return fullString;
