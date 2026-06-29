@@ -40,15 +40,10 @@ function doGet(e) {
       
       if (values.length < 2) continue;
       
-      // Trim empty columns at the end to save bandwidth
-      let lastCol = values[0].length;
-      while (lastCol > 0 && String(values[0][lastCol-1]).trim() === "") lastCol--;
-      if (lastCol === 0) continue;
-
-      // Filter out completely blank rows
+      // Filter out completely blank rows to save bandwidth
       const trimmedValues = [];
       for (let i = 0; i < values.length; i++) {
-        const row = values[i].slice(0, lastCol);
+        const row = values[i];
         if (row.some(cell => String(cell).trim() !== "")) trimmedValues.push(row);
       }
 
