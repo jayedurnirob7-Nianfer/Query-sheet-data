@@ -77,16 +77,33 @@ export default function Dashboard() {
 
   // ── Auto-fetch on mount if URL is saved ──────────────────────
   useEffect(() => {
-    const url = localStorage.getItem('mein_script_url') || '';
-    if (url) fetchFromScript(url);
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('mein_dashboard_cache');
+      const cachedTime = localStorage.getItem('mein_dashboard_cache_time');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.length > 0) {
+            setTabsData(parsed);
+            if (cachedTime) {
+              const diffMins = Math.floor((Date.now() - parseInt(cachedTime)) / 60000);
+              setMinsLeft(Math.max(0, 60 - diffMins));
+            }
+          }
+        } catch(e) { console.error('Failed to parse cache', e); }
+      }
 
-    const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 60), 60000);
-    const refresh = setInterval(() => {
-      const u = localStorage.getItem('mein_script_url') || '';
-      if (u) fetchFromScript(u);
-    }, REFRESH_MS);
+      const url = localStorage.getItem('mein_script_url') || '';
+      if (url) fetchFromScript(url);
 
-    return () => { clearInterval(tick); clearInterval(refresh); };
+      const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 60), 60000);
+      const refresh = setInterval(() => {
+        const u = localStorage.getItem('mein_script_url') || '';
+        if (u) fetchFromScript(u);
+      }, REFRESH_MS);
+
+      return () => { clearInterval(tick); clearInterval(refresh); };
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -391,6 +408,10 @@ export default function Dashboard() {
       setTabsData(parsedTabs);
       setLastSync(new Date().toLocaleTimeString());
       setMinsLeft(60);
+      try {
+        localStorage.setItem('mein_dashboard_cache', JSON.stringify(parsedTabs));
+        localStorage.setItem('mein_dashboard_cache_time', Date.now().toString());
+      } catch (e) { console.error('Failed to save cache', e); }
       
       // Keep active tab index valid
       setActiveTab(prev => (prev < parsedTabs.length ? prev : 0));
@@ -633,22 +654,23 @@ export default function Dashboard() {
           <div style={{
             display:'flex', alignItems:'center', gap:'6px',
             padding:'4px 12px', borderRadius:'999px',
-            background: 'var(--green-bg)',
-            border: `1px solid var(--green)`,
+            background: fetching ? 'var(--yellow-bg)' : 'var(--green-bg)',
+            border: `1px solid ${fetching ? 'var(--yellow)' : 'var(--green)'}`,
             fontSize:'0.73rem', fontWeight:500,
-            color: 'var(--green)',
+            color: fetching ? 'var(--yellow)' : 'var(--green)',
+            transition: 'all 0.3s'
           }}>
             <span style={{
               width:7, height:7, borderRadius:'50%',
-              background: 'var(--green)',
+              background: fetching ? 'var(--yellow)' : 'var(--green)',
               animation: 'pulse 2s infinite',
               display:'inline-block',
             }}/>
-            {`Live · Next sync in ${minsLeft}m`}
+            {fetching ? 'Syncing...' : `Live · Next sync in ${minsLeft}m`}
           </div>
 
           {/* Last sync time */}
-          {lastSync && (
+          {lastSync && !fetching && (
             <span style={{ fontSize:'0.72rem', color:'var(--text-muted)', whiteSpace:'nowrap' }}>
               Synced {lastSync}
             </span>
@@ -672,8 +694,8 @@ export default function Dashboard() {
             onMouseEnter={e => { if (!fetching) { e.currentTarget.style.background='var(--accent)'; e.currentTarget.style.color='#fff'; }}}
             onMouseLeave={e => { e.currentTarget.style.background='rgba(79,124,255,0.1)'; e.currentTarget.style.color='var(--accent)'; }}
           >
-            <span style={{ display:'inline-block', animation: fetching ? 'spin 0.8s linear infinite' : 'none' }}>🔄</span>
-            {fetching ? 'Fetching…' : 'Refresh'}
+            <span style={{ display:'inline-block', animation: fetching ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
+            {fetching ? 'Syncing' : 'Refresh'}
           </button>
 
           {/* Settings button */}
