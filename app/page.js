@@ -60,7 +60,7 @@ function parseSheetRow(headers, row) {
 const REFRESH_MS = 60 * 60 * 1000; // 1 hour
 
 // Paste your Google Apps Script URL here to make it load automatically on all devices
-const INBUILT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz2oraDZy3Dpo8WgCyq-nEsJ9tvvrdgm19AmzIqPBBCRQI5cYp5OYQzqkuitrGbajBP/exec';
+const INBUILT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXPhpc4J8dYAinK2FIq9M88xT0FU26ii5CIAnwXhxefDeouu7lUFhzQGvIcW7D-bs/exec';
 
 export default function Dashboard() {
   const [tabsData,    setTabsData]    = useState([]);
