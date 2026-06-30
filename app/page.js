@@ -747,7 +747,7 @@ export default function Dashboard() {
 
 
       {/* ── Tab Selector ───────────────────────────────────────── */}
-      <div style={{ padding: '1rem 2rem 0', maxWidth: '1920px', margin: '0 auto' }}>
+      <div style={{ padding: '1rem 2rem 0', maxWidth: '100%', margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px' }}>
           {tabsData.map((tab, idx) => (
             <button
@@ -772,7 +772,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <main style={{ padding:'1rem 2rem 2rem', maxWidth:'1920px', margin:'0 auto' }}>
+      <main style={{ padding:'1rem 2rem 2rem', maxWidth:'100%', margin:'0 auto' }}>
 
         {/* ── KPI Sections ────────────────────────────────────────── */}
         <div style={{ marginBottom: '3rem' }}>
