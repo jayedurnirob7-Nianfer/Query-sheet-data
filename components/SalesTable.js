@@ -4,7 +4,6 @@ const getCols = (type) => [
   { key:'name',        label: type || 'Profile', align:'left'  },
   { key:'totalQuery',  label:'Total Query',      align:'center' },
   { key:'freshQuery',  label:'Fresh Query',      align:'center' },
-  { key:'directOrder', label:'Direct Order',     align:'center' },
   { key:'totalBrief',  label:'Total Brief',      align:'center' },
   { key:'freshBrief',  label:'Fresh Brief',      align:'center' },
   { key:'quoteSent',   label:'Quote Sent',       align:'center' },
@@ -15,6 +14,7 @@ const getCols = (type) => [
   { key:'quoteVsConv', label:'Quote VS Conv.',   align:'center', isPct:true },
   { key:'queryVsConv', label:'Query VS Conv.',   align:'center', isPct:true },
   { key:'briefVsConv', label:'Brief VS Conv.',   align:'center', isPct:true },
+  { key:'directOrder', label:'Direct Order',     align:'center' },
 ];
 
 function pctBadge(val) {
