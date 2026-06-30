@@ -450,6 +450,7 @@ export default function Dashboard() {
     const briefConverted = rs.reduce((s,r) => s + (r.briefConverted || 0), 0);
     const queryConverted = rs.reduce((s,r) => s + (r.queryConverted || 0), 0);
     const passSpam   = rs.reduce((s,r) => s + (r.passSpam || 0), 0);
+    const directOrder = rs.reduce((s,r) => s + (r.directOrder || 0), 0);
 
     return {
       name: 'Total',
@@ -462,6 +463,7 @@ export default function Dashboard() {
       converted,
       briefConverted,
       queryConverted,
+      directOrder,
       quoteVsConv: quoteSent > 0 ? parseFloat(((converted / quoteSent) * 100).toFixed(2)) : 0,
       queryVsConv: freshQuery > 0 ? parseFloat(((converted / freshQuery) * 100).toFixed(2)) : 0,
       briefVsConv: freshBrief > 0 ? parseFloat(((briefConverted / freshBrief) * 100).toFixed(2)) : 0,
