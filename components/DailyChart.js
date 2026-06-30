@@ -7,6 +7,7 @@ import {
 const LINES = [
   { key:'totalQuery', label:'Total Query',  color:'#38bdf8' },
   { key:'freshQuery', label:'Fresh Query',  color:'#4f7cff' },
+  { key:'directOrder',label:'Direct Order', color:'#e879f9' },
   { key:'totalBrief', label:'Brief',        color:'#f5c542' },
   { key:'converted',  label:'Converted',    color:'#10d98a' },
   { key:'passSpam',   label:'Pass/Spam',    color:'#ff5e7a' },
