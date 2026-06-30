@@ -1174,7 +1174,6 @@ function ProfilePill({ name }) {
 }
 
 function DrilldownTable({ rows }) {
-  const { useState } = React;
   const [sortKey, setSortKey] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
