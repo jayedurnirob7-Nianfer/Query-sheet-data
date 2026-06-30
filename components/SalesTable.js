@@ -41,10 +41,10 @@ export default function SalesTable({ rows, totals, sortKey, sortDir, onSort, typ
   });
 
   const th = (col) => ({
-    padding:'10px 14px',
+    padding:'8px 10px',
     textAlign: col.align,
-    fontSize:'0.71rem', fontWeight:600,
-    textTransform:'uppercase', letterSpacing:'0.05em',
+    fontSize:'0.68rem', fontWeight:700,
+    textTransform:'uppercase', letterSpacing:'0.03em',
     color: sortKey === col.key ? 'var(--accent)' : 'var(--text-muted)',
     cursor:'pointer', whiteSpace:'nowrap', userSelect:'none',
     transition:'color 0.15s',
@@ -56,9 +56,9 @@ export default function SalesTable({ rows, totals, sortKey, sortDir, onSort, typ
   });
 
   const td = (align, extra={}) => ({
-    padding:'11px 14px',
+    padding:'8px 10px',
     textAlign: align,
-    fontSize:'0.84rem',
+    fontSize:'0.8rem',
     color:'var(--text-primary)',
     borderBottom:'1px solid rgba(99,130,255,0.06)',
     whiteSpace:'nowrap',
