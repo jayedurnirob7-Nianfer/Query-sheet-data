@@ -278,7 +278,7 @@ export default function Dashboard() {
             const hasCustomOffer = status.includes('custom offer');
             const hasQuoted = status.includes('quote') || status.includes('qoute');
             const hasConverted = status.includes('converted') || status.includes('direct order');
-            const isTotalQuery = !hasBrief;
+            const isTotalQuery = !hasBrief && !isDirectOrder;
 
             const rowData = {
               clientName: clientNameIdx !== -1 ? String(raw[i][clientNameIdx] || '').trim() : '',
@@ -353,7 +353,7 @@ export default function Dashboard() {
 
           const calcRatios = (p) => {
              p.quoteVsConv = p.quoteSent > 0 ? parseFloat(((p.converted / p.quoteSent) * 100).toFixed(2)) : 0;
-             p.queryVsConv = p.freshQuery > 0 ? parseFloat(((p.converted / p.freshQuery) * 100).toFixed(2)) : 0;
+             p.queryVsConv = p.freshQuery > 0 ? parseFloat(((p.queryConverted / p.freshQuery) * 100).toFixed(2)) : 0;
              p.briefVsConv = p.freshBrief > 0 ? parseFloat(((p.briefConverted / p.freshBrief) * 100).toFixed(2)) : 0;
              return p;
           };
@@ -465,7 +465,7 @@ export default function Dashboard() {
       queryConverted,
       directOrder,
       quoteVsConv: quoteSent > 0 ? parseFloat(((converted / quoteSent) * 100).toFixed(2)) : 0,
-      queryVsConv: freshQuery > 0 ? parseFloat(((converted / freshQuery) * 100).toFixed(2)) : 0,
+      queryVsConv: freshQuery > 0 ? parseFloat(((queryConverted / freshQuery) * 100).toFixed(2)) : 0,
       briefVsConv: freshBrief > 0 ? parseFloat(((briefConverted / freshBrief) * 100).toFixed(2)) : 0,
     };
   }
