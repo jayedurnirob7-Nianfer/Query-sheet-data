@@ -1174,12 +1174,46 @@ function ProfilePill({ name }) {
 }
 
 function DrilldownTable({ rows }) {
+  const { useState } = React;
+  const [sortKey, setSortKey] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+
   if (!rows || rows.length === 0) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No data found.</div>;
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRows = [...rows].sort((a, b) => {
+    if (!sortKey) return 0;
+    
+    let valA = a[sortKey] || '';
+    let valB = b[sortKey] || '';
+    
+    if (sortKey === 'amount') {
+       valA = parseFloat(String(valA).replace(/[^0-9.-]+/g, "")) || 0;
+       valB = parseFloat(String(valB).replace(/[^0-9.-]+/g, "")) || 0;
+       return sortDir === 'asc' ? valA - valB : valB - valA;
+    }
+
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    
+    if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const thStyle = {
     padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', textTransform: 'uppercase',
     letterSpacing: '0.05em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 10, whiteSpace: 'nowrap'
+    background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 10, whiteSpace: 'nowrap',
+    cursor: 'pointer', userSelect: 'none'
   };
 
   const tdStyle = {
@@ -1187,23 +1221,34 @@ function DrilldownTable({ rows }) {
     borderBottom: '1px solid rgba(99,130,255,0.06)', whiteSpace: 'nowrap'
   };
 
+  const Th = ({ label, sortName }) => (
+    <th style={thStyle} onClick={() => handleSort(sortName)}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {label}
+        <span style={{ fontSize: '0.7rem', color: sortKey === sortName ? 'var(--accent)' : 'var(--text-muted)', opacity: sortKey === sortName ? 1 : 0.4 }}>
+          {sortKey === sortName ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </div>
+    </th>
+  );
+
   return (
     <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
-            <th style={thStyle}>Date</th>
-            <th style={thStyle}>Client Name</th>
-            <th style={thStyle}>URL</th>
-            <th style={thStyle}>Service Line</th>
-            <th style={thStyle}>Amount</th>
-            <th style={thStyle}>Profile</th>
-            <th style={thStyle}>Seller</th>
-            <th style={thStyle}>Status</th>
+          <tr style={{ background: 'var(--bg-secondary)' }}>
+            <Th label="Date" sortName="date" />
+            <Th label="Client Name" sortName="clientName" />
+            <Th label="URL" sortName="clientUrl" />
+            <Th label="Service Line" sortName="serviceLine" />
+            <Th label="Amount" sortName="amount" />
+            <Th label="Profile" sortName="profileName" />
+            <Th label="Seller" sortName="sellerName" />
+            <Th label="Status" sortName="status" />
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
+          {sortedRows.map((r, i) => (
             <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(79,124,255,0.08)'}
                 onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'}>
