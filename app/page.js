@@ -1199,6 +1199,12 @@ function DrilldownTable({ rows }) {
        valB = parseFloat(String(valB).replace(/[^0-9.-]+/g, "")) || 0;
        return sortDir === 'asc' ? valA - valB : valB - valA;
     }
+    
+    if (sortKey === 'date') {
+       const timeA = new Date(valA + " 2026").getTime() || 0;
+       const timeB = new Date(valB + " 2026").getTime() || 0;
+       return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+    }
 
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();
