@@ -278,6 +278,7 @@ export default function Dashboard() {
             const hasCustomOffer = status.includes('custom offer');
             const hasQuoted = status.includes('quote') || status.includes('qoute');
             const hasConverted = status.includes('converted') || status.includes('direct order');
+            const isDirectOrder = status.includes('direct order');
             const isTotalQuery = !hasBrief && !isDirectOrder;
 
             const rowData = {
@@ -290,8 +291,6 @@ export default function Dashboard() {
               amount: amountIdx !== -1 ? String(raw[i][amountIdx] || '').trim() : '',
               sellerName: seller
             };
-
-            const isDirectOrder = status.includes('direct order');
 
             const pushDrilldown = (metric) => { drilldown[metric].push(rowData); };
 
