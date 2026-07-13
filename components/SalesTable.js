@@ -1,21 +1,30 @@
 'use client';
 
-const getCols = (type) => [
-  { key:'name',        label: type || 'Profile', align:'left'  },
-  { key:'totalQuery',  label:'Total Query',      align:'center' },
-  { key:'freshQuery',  label:'Fresh Query',      align:'center' },
-  { key:'totalBrief',  label:'Total Brief',      align:'center' },
-  { key:'freshBrief',  label:'Fresh Brief',      align:'center' },
-  { key:'quoteSent',   label:'Quote Sent',       align:'center' },
-  { key:'converted',   label:'Converted',        align:'center' },
-  { key:'queryConverted',label:'Query Conv.',    align:'center' },
-  { key:'briefConverted',label:'Brief Conv.',    align:'center' },
-  { key:'passSpam',    label:'Pass/Spam',        align:'center' },
-  { key:'quoteVsConv', label:'Quote VS Conv.',   align:'center', isPct:true },
-  { key:'queryVsConv', label:'Query VS Conv.',   align:'center', isPct:true },
-  { key:'briefVsConv', label:'Brief VS Conv.',   align:'center', isPct:true },
-  { key:'directOrder', label:'Direct Order',     align:'center' },
-];
+const getCols = (type) => {
+  const cols = [
+    { key:'name',        label: type || 'Profile', align:'left'  },
+    { key:'totalQuery',  label:'Total Query',      align:'center' },
+    { key:'freshQuery',  label:'Fresh Query',      align:'center' },
+    { key:'totalBrief',  label:'Total Brief',      align:'center' },
+    { key:'freshBrief',  label:'Fresh Brief',      align:'center' },
+    { key:'quoteSent',   label:'Quote Sent',       align:'center' },
+    { key:'converted',   label:'Converted',        align:'center' },
+    { key:'queryConverted',label:'Query Conv.',    align:'center' },
+    { key:'briefConverted',label:'Brief Conv.',    align:'center' },
+    { key:'passSpam',    label:'Pass/Spam',        align:'center' },
+    { key:'directOrder', label:'Direct Order',     align:'center' },
+    { key:'quoteVsConv', label:'Quote VS Conv.',   align:'center', isPct:true },
+    { key:'queryVsConv', label:'Query VS Conv.',   align:'center', isPct:true },
+    { key:'briefVsConv', label:'Brief VS Conv.',   align:'center', isPct:true },
+  ];
+
+  if (type === 'SELLER') {
+    cols.push({ key:'target',      label:'Target',           align:'center', isCurrency:true });
+    cols.push({ key:'achieved',    label:'Achieved',         align:'center', isCurrency:true });
+  }
+
+  return cols;
+};
 
 function pctBadge(val) {
   const n = parseFloat(String(val).replace('%','')) || 0;
@@ -105,6 +114,19 @@ export default function SalesTable({ rows, totals, sortKey, sortDir, onSort, typ
                     </td>
                   );
                 }
+                if (col.isCurrency) {
+                  const numVal = Number(val) || 0;
+                  const targetNum = Number(row.target) || 0;
+                  let color = 'var(--text-primary)';
+                  if (col.key === 'achieved' && targetNum > 0) {
+                     color = numVal >= targetNum ? 'var(--green)' : 'var(--yellow)';
+                  }
+                  return (
+                    <td key={col.key} style={{...td(col.align), color, fontWeight: 600}}>
+                      ${numVal.toLocaleString()}
+                    </td>
+                  );
+                }
                 if (col.key === 'name') {
                   return (
                     <td key={col.key} style={td(col.align)}>
@@ -160,6 +182,19 @@ export default function SalesTable({ rows, totals, sortKey, sortDir, onSort, typ
                       <span style={{ display:'inline-block', padding:'2px 10px', borderRadius:'999px', fontSize:'0.78rem', fontWeight:700, color, background:bg, cursor:'help' }}>
                         {val}%
                       </span>
+                    </td>
+                  );
+                }
+                if (col.isCurrency) {
+                  const numVal = Number(val) || 0;
+                  const targetNum = Number(totals.target) || 0;
+                  let color = 'var(--text-primary)';
+                  if (col.key === 'achieved' && targetNum > 0) {
+                     color = numVal >= targetNum ? 'var(--green)' : 'var(--yellow)';
+                  }
+                  return (
+                    <td key={col.key} style={{...td(col.align), fontWeight:700, borderBottom:'none', color}}>
+                      ${numVal.toLocaleString()}
                     </td>
                   );
                 }

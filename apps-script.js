@@ -1,5 +1,5 @@
 // ============================================================
-// MEIN QUERY SHEET — Apps Script Backend (V6 - DIRECT READ)
+// MEIN QUERY SHEET — Apps Script Backend (V7 - DIRECT READ MULTI)
 // ============================================================
 // SETUP INSTRUCTIONS:
 // 1. Open your BACKEND Google Sheet
@@ -9,13 +9,16 @@
 //    - Who has access: Anyone
 // 
 // NOTE: This version ignores your backend sheet entirely.
-// It reaches directly into the MAIN sheet for live data,
-// bypassing the frozen IMPORTRANGE delay. It caches for exactly
-// 60 seconds to remain ultra-fast while staying real-time.
+// It reaches directly into the MAIN sheet and the new TARGET/ACHIEVED
+// sheets for live data, bypassing the frozen IMPORTRANGE delay. 
+// It caches for exactly 60 seconds to remain ultra-fast.
 // ============================================================
 
-const CACHE_KEY = 'mein_query_v6_direct';
+const CACHE_KEY = 'mein_query_v7_direct';
 const MAIN_SHEET_ID = '1-7apj6Sg-kJktfcMZoi44Srq5spgpCr0z0G71rqtqGQ';
+const TARGET_SHEET_ID = '1MEKqysI_paEnCExq0y6nPsOUOgbIHs-wRYL6hMtxgKo';
+const ACHIEVED_SHEET_1_ID = '1A_MuvrT5sCKBgyb83Yx1dDhIda1iy4cVtJjKxuIjze0';
+const ACHIEVED_SHEET_2_ID = '1ADYVV-DEadHNKzphBIRQ8KfqMV9bsH13d54mwQnovS0';
 
 function doGet(e) {
   const output = ContentService.createTextOutput();
@@ -29,26 +32,36 @@ function doGet(e) {
       return output;
     }
 
-    // 2. Read directly from the MAIN Sheet (bypasses IMPORTRANGE)
-    const ss = SpreadsheetApp.openById(MAIN_SHEET_ID);
-    const sheets = ss.getSheets();
     const tabsData = [];
 
-    for (let sh of sheets) {
-      const tabName = sh.getName();
-      const values = sh.getDataRange().getDisplayValues();
-      
-      if (values.length < 2) continue;
-      
-      // Filter out completely blank rows to save bandwidth
-      const trimmedValues = [];
-      for (let i = 0; i < values.length; i++) {
-        const row = values[i];
-        if (row.some(cell => String(cell).trim() !== "")) trimmedValues.push(row);
+    // Helper function to read sheets
+    function readSheetData(sheetId, typeLabel) {
+      try {
+        const doc = SpreadsheetApp.openById(sheetId);
+        const tabs = doc.getSheets();
+        for (let sh of tabs) {
+          const tabName = sh.getName();
+          const values = sh.getDataRange().getDisplayValues();
+          if (values.length < 2) continue;
+          
+          // Filter out completely blank rows to save bandwidth
+          const trimmedValues = [];
+          for (let i = 0; i < values.length; i++) {
+            const row = values[i];
+            if (row.some(cell => String(cell).trim() !== "")) trimmedValues.push(row);
+          }
+          tabsData.push({ type: typeLabel, tabName: tabName, rawData: trimmedValues });
+        }
+      } catch (err) {
+        // Ignore errors for individual sheets to prevent full failure
       }
-
-      tabsData.push({ tabName: tabName, rawData: trimmedValues });
     }
+
+    // 2. Read directly from the Sheets (bypasses IMPORTRANGE)
+    readSheetData(MAIN_SHEET_ID, 'main');
+    readSheetData(TARGET_SHEET_ID, 'target');
+    readSheetData(ACHIEVED_SHEET_1_ID, 'achieved');
+    readSheetData(ACHIEVED_SHEET_2_ID, 'achieved');
 
     const resultString = JSON.stringify({ 
       status: 'ok', 

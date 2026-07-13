@@ -60,17 +60,19 @@ function parseSheetRow(headers, row) {
 const REFRESH_MS = 60 * 60 * 1000; // 1 hour
 
 // Paste your Google Apps Script URL here to make it load automatically on all devices
-const INBUILT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec';
+const INBUILT_SCRIPT_URL = '';
 
 export default function Dashboard() {
   const [tabsData,    setTabsData]    = useState([]);
   const [activeTab,   setActiveTab]   = useState(0);
   const [fetching,    setFetching]    = useState(true); // Start fetching = true so it shows loading immediately
-  const [fetchError,  setFetchError]  = useState('');
+  const [fetchError, setFetchError] = useState(null);
+  const [debugData, setDebugData] = useState(null);
   const [lastSync,    setLastSync]    = useState('');
   const [showSettings,setShowSettings]= useState(false);
   const [sortKey,     setSortKey]     = useState('query');
   const [sortDir,     setSortDir]     = useState('desc');
+  const [showDebug,   setShowDebug]   = useState(false);
   const [minsLeft,    setMinsLeft]    = useState(60);
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
@@ -126,9 +128,164 @@ export default function Dashboard() {
       
       if (tabsRaw.length === 0) throw new Error('No data returned from sheet');
 
+      const targetTabsCount = tabsRaw.filter(t => t.type === 'target').length;
+      const achievedTabsCount = tabsRaw.filter(t => t.type === 'achieved').length;
+      if (targetTabsCount === 0) {
+        setFetchError(`Warning: Dashboard is not receiving Target (${targetTabsCount}) or Achieved (${achievedTabsCount}) data. If you deployed a NEW script, make sure to copy the NEW Web App URL into the dashboard Settings. Also ensure Google granted permission to read the new sheets.`);
+      }
+
+      // --- Pre-process Target and Achieved Data ---
+      let targetDataByTab = {}; 
+      let achievedDataByTab = {}; 
+      
+      tabsRaw.forEach(t => {
+        if (t.type === 'target' && t.rawData && t.rawData.length > 1) {
+          const tName = (t.tabName || 'master').toLowerCase();
+          if (!targetDataByTab[tName]) targetDataByTab[tName] = {};
+
+          // Smartly find header row for target
+          let headerRowIndex = 0;
+          let bestScore = -1;
+          for (let i = 0; i < Math.min(50, t.rawData.length); i++) {
+             const h = t.rawData[i].map(x => String(x).toLowerCase());
+             let score = 0;
+             if (h.some(x => x.includes('name') || x.includes('seller'))) score++;
+             if (h.some(x => x.includes('target') || x.includes('goal'))) score++;
+             if (h.some(x => x.includes('total') || x.includes('sales') || x.includes('amount'))) score++;
+             if (score > bestScore && score >= 2) {
+                 bestScore = score;
+                 headerRowIndex = i;
+             }
+          }
+          const headers = t.rawData[headerRowIndex].map(h => String(h).trim().toLowerCase());
+          const getIdx = words => {
+            for (const w of words) {
+              const idx = headers.findIndex(h => h.includes(w));
+              if (idx !== -1) return idx;
+            }
+            return -1;
+          };
+          const nameIdx = getIdx(['name', 'salesperson', 'seller']);
+          const targetIdx = getIdx(['target', 'goal']);
+          
+          if (nameIdx !== -1 && targetIdx !== -1) {
+            for (let i = headerRowIndex + 1; i < t.rawData.length; i++) {
+              const name = String(t.rawData[i][nameIdx]).trim();
+              const rawTarget = String(t.rawData[i][targetIdx]).replace(/[^0-9.-]/g, '');
+              const target = parseInt(rawTarget) || 0;
+              if (name) targetDataByTab[tName][name.toLowerCase()] = target;
+            }
+          } else {
+             // Fallback: If no headers found, just assume column 1 is name and column 2 is target (if column 2 is a number)
+             // or maybe the user has an empty column 0.
+             console.error("Target headers not found. Raw row 0:", t.rawData[0]);
+             targetDataByTab['DEBUG_TARGET_HEADERS'] = JSON.stringify(t.rawData[0]);
+          }
+        }
+        
+        if (t.type === 'achieved') {
+          const tName = (t.tabName || 'master').toLowerCase();
+          if (!achievedDataByTab[tName]) achievedDataByTab[tName] = {};
+
+          // Smartly find header row for achieved
+          let headerRowIndex = 0;
+          let bestScore = -1;
+          for (let i = 0; i < Math.min(50, t.rawData.length); i++) {
+             const h = t.rawData[i].map(x => String(x).toLowerCase());
+             let score = 0;
+             if (h.some(x => x.includes('name') || x.includes('seller'))) score++;
+             if (h.some(x => x.includes('profile'))) score++;
+             if (h.some(x => x.includes('amount') || x.includes('achieved') || x.includes('sales'))) score++;
+             if (h.some(x => x.includes('delivery'))) score++;
+             if (h.some(x => x.includes('date'))) score++;
+             if (score > bestScore && score >= 2) {
+                 bestScore = score;
+                 headerRowIndex = i;
+             }
+          }
+          const headers = t.rawData[headerRowIndex].map(h => String(h).trim().toLowerCase());
+          const getIdx = words => {
+            for (const w of words) {
+              const idx = headers.findIndex(h => h.includes(w));
+              if (idx !== -1) return idx;
+            }
+            return -1;
+          };
+          const nameIdx = getIdx(['name', 'salesperson', 'seller', 'profile']);
+          const achievedIdx = getIdx(['delivery amount', 'delivery', 'usd amount', 'usd', 'achieved', 'amount', 'achive', 'total achieved']);
+          const statusIdx = getIdx(['order status', 'status', 'state']);
+          
+          if (nameIdx !== -1 && achievedIdx !== -1) {
+            for (let i = headerRowIndex + 1; i < t.rawData.length; i++) {
+              const name = String(t.rawData[i][nameIdx]).trim();
+              const rawAchieved = String(t.rawData[i][achievedIdx]).replace(/[^0-9.-]/g, '');
+              const achieved = parseFloat(rawAchieved) || 0;
+              
+              const rowStr = t.rawData[i].join(' ').toLowerCase();
+              if (rowStr.includes('special_pxl sales') || rowStr.includes('c_forward_pxl sales')) {
+                continue; 
+              }
+
+              let isCanceled = false;
+              if (statusIdx !== -1) {
+                  const st = String(t.rawData[i][statusIdx]).toLowerCase();
+                  if (st.includes('cancel') || st.includes('refund')) isCanceled = true;
+              } else {
+                  if (rowStr.includes('cancel') || rowStr.includes('refund')) isCanceled = true;
+              }
+
+              if (isCanceled) continue;
+
+              if (name) {
+                 achievedDataByTab[tName][name.toLowerCase()] = (achievedDataByTab[tName][name.toLowerCase()] || 0) + achieved;
+              }
+            }
+          } else {
+             achievedDataByTab['DEBUG_ACHIEVED_HEADERS'] = JSON.stringify(t.rawData[0]);
+          }
+        }
+      });
+      
+      const hasAnyTargets = Object.values(targetDataByTab).some(tab => Object.keys(tab).length > 0 && !tab['DEBUG_TARGET_HEADERS']);
+      if (!hasAnyTargets) {
+        const rawTargetPreview = tabsRaw.filter(t => t.type === 'target').map(t => JSON.stringify(t.rawData.slice(0, 2))).join(' | ');
+        setFetchError(`Warning: Target data was received, but no valid target numbers could be parsed. First two rows of target sheet: ${rawTargetPreview}`);
+      }
+      
+      const hasAnyAchieved = Object.values(achievedDataByTab).some(tab => Object.keys(tab).length > 0 && !tab['DEBUG_ACHIEVED_HEADERS']);
+      if (!hasAnyAchieved && achievedTabsCount > 0) {
+        const rawAchievedPreview = tabsRaw.filter(t => t.type === 'achieved').map(t => JSON.stringify(t.rawData.slice(0, 2))).join(' | ');
+        setFetchError(`Warning: Achieved data was received, but no valid achieved numbers could be parsed. First two rows: ${rawAchievedPreview}`);
+      }
+
+      // We will set debug data at the very end of the function so we can include the mapped sellers
+
+
+      // ---------------------------------------------
+
+      const nameAliases = {
+        "dipu": ["hasib ullah", "md. hasib ullah", "hasib"],
+      };
+
+      const matchName = (fullName, shortName) => {
+          if (!fullName || !shortName) return false;
+          const f = fullName.toLowerCase();
+          const s = shortName.toLowerCase();
+          
+          if (f.includes(s) || s.includes(f)) return true;
+          
+          for (const [short, fulls] of Object.entries(nameAliases)) {
+             const isMatch = (s.includes(short) && fulls.some(a => f.includes(a))) || 
+                             (f.includes(short) && fulls.some(a => s.includes(a)));
+             if (isMatch) return true;
+          }
+          return false;
+      };
+
       const parsedTabs = [];
 
       tabsRaw.forEach(tab => {
+        if (tab.type === 'target' || tab.type === 'achieved') return;
         // If it's the old Apps Script format (array of objects in tab.rows)
         if (tab.rows && !tab.rawData) {
            let parsedRows = [];
@@ -226,6 +383,11 @@ export default function Dashboard() {
           const sellerDailyAggs = {}; // Track daily metrics per seller
           const profileDailyAggs = {}; // Track daily metrics per profile
           const dailyKeys = []; // Preserves chronological order from sheet
+          
+          const masterTotal = {
+            name: 'Total', totalQuery: 0, freshQuery: 0, totalBrief: 0, freshBrief: 0, 
+            passSpam: 0, quoteSent: 0, converted: 0, briefConverted: 0, queryConverted: 0, directOrder: 0
+          };
 
           const initObj = (name) => ({
             name, 
@@ -348,6 +510,8 @@ export default function Dashboard() {
               }
             }
             if (currentDay) increment(dailyAggregates[currentDay]);
+            
+            increment(masterTotal);
           }
 
           const calcRatios = (p) => {
@@ -375,7 +539,66 @@ export default function Dashboard() {
              profileDailyRows[p] = dailyKeys.filter(k => profileDailyAggs[p][k]).map(k => calcRatios(profileDailyAggs[p][k]));
           });
 
-          parsedTotals = computeTotals(parsedRows);
+          parsedTotals = calcRatios(masterTotal);
+
+          // Append target and achieved
+          const tabKey = tab.tabName.toLowerCase();
+          
+          // Helper to find the correct data by matching the month name and year (e.g. "jul" and "26" inside "july_26")
+          const getMonthData = (dataObj) => {
+             const monthMatch = tabKey.match(/jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i);
+             const yearMatch = tabKey.match(/\d{2}/);
+             if (monthMatch) {
+                const monthStr = monthMatch[0];
+                const yearStr = yearMatch ? yearMatch[0] : '';
+                
+                const matchedKeys = Object.keys(dataObj).filter(k => {
+                    const hasMonth = k.includes(monthStr);
+                    const hasYear = yearStr ? (k.includes('20' + yearStr) || k.includes(yearStr)) : true;
+                    return hasMonth && hasYear;
+                });
+
+                if (matchedKeys.length > 0) {
+                    const merged = {};
+                    matchedKeys.forEach(k => {
+                        const tabData = dataObj[k];
+                        Object.entries(tabData).forEach(([seller, amount]) => {
+                             merged[seller] = (merged[seller] || 0) + amount;
+                        });
+                    });
+                    return merged;
+                }
+             }
+             // Fallback: exact match, then 'master', then the first valid tab
+             return dataObj[tabKey] || dataObj['master'] || Object.values(dataObj).find(t => {
+                const keys = Object.keys(t);
+                return keys.length > 0 && !t['DEBUG_TARGET_HEADERS'] && !t['DEBUG_ACHIEVED_HEADERS'] && !keys.includes("1");
+             }) || {};
+          };
+
+          const tData = getMonthData(targetDataByTab);
+          const aData = getMonthData(achievedDataByTab);
+
+          parsedRows.forEach(row => {
+            const shortName = (row.name || '').toLowerCase();
+            const tEntry = Object.entries(tData).find(([full]) => matchName(full, shortName));
+            row.target = tEntry ? tEntry[1] : 0;
+            const aEntry = Object.entries(aData).find(([full]) => matchName(full, shortName));
+            row.achieved = aEntry ? aEntry[1] : 0;
+          });
+
+          sellerRows.forEach(row => {
+            const shortName = (row.name || '').toLowerCase();
+            const tEntry = Object.entries(tData).find(([full]) => matchName(full, shortName));
+            row.target = tEntry ? tEntry[1] : 0;
+            const aEntry = Object.entries(aData).find(([full]) => matchName(full, shortName));
+            row.achieved = aEntry ? aEntry[1] : 0;
+          });
+
+          // Calculate overall totals specifically from sellers so we don't double count targets across multiple profiles
+          parsedTotals.target = sellerRows.reduce((s, r) => s + (r.target || 0), 0);
+          parsedTotals.achieved = sellerRows.reduce((s, r) => s + (r.achieved || 0), 0);
+
           parsedTabs.push({ 
             tabName: tab.tabName, 
             rows: parsedRows, 
@@ -406,7 +629,28 @@ export default function Dashboard() {
         }
 
         if (!parsedTotals) parsedTotals = computeTotals(parsedRows);
+
+        // Append target and achieved
+        parsedRows.forEach(row => {
+          const shortName = (row.name || '').toLowerCase();
+          const tEntry = Object.entries(targetData).find(([full]) => matchName(full, shortName));
+          row.target = tEntry ? tEntry[1] : 0;
+          const aEntry = Object.entries(achievedData).find(([full]) => matchName(full, shortName));
+          row.achieved = aEntry ? aEntry[1] : 0;
+        });
+        parsedTotals.target = parsedRows.reduce((s, r) => s + (r.target || 0), 0);
+        parsedTotals.achieved = parsedRows.reduce((s, r) => s + (r.achieved || 0), 0);
+
         parsedTabs.push({ tabName: tab.tabName, rows: parsedRows, totals: parsedTotals });
+      });
+
+      setDebugData({
+         achieved: achievedDataByTab,
+         target: targetDataByTab,
+         mappedSellers: parsedTabs.map(t => ({
+           tab: t.tabName,
+           sellers: t.sellerRows ? t.sellerRows.map(s => ({name: s.name, target: s.target, achieved: s.achieved})) : null
+         }))
       });
 
       if (parsedTabs.length === 0) throw new Error('No valid data found in tabs');
@@ -529,8 +773,15 @@ export default function Dashboard() {
         </header>
 
         {fetchError && (
-          <div style={{ background:'rgba(255,50,50,0.1)', color:'#ff6b6b', padding:'12px 2rem', borderBottom:'1px solid rgba(255,50,50,0.2)', fontSize:'0.85rem' }}>
+          <div style={{ background:'var(--red-bg)', color:'var(--red)', padding:'12px', borderRadius:'8px', marginBottom:'20px', fontWeight:600 }}>
             {fetchError}
+          </div>
+        )}
+
+        {debugData && (
+          <div style={{ background:'#1e1e1e', color:'#00ff00', padding:'10px', borderRadius:'8px', marginBottom:'20px', fontSize:'11px', overflowX:'auto', whiteSpace:'pre-wrap' }}>
+            <b>Diagnostic Data:</b><br/>
+            {JSON.stringify(debugData, null, 2)}
           </div>
         )}
 
@@ -746,8 +997,10 @@ export default function Dashboard() {
 
 
 
-      {/* ── Tab Selector ───────────────────────────────────────── */}
-      <div style={{ padding: '1rem 2rem 0', maxWidth: '100%', margin: '0 auto' }}>
+      {/* ── Dashboard Content ──────── */}
+      <div style={{ width: '100%' }}>
+        {/* ── Tab Selector ───────────────────────────────────────── */}
+        <div style={{ padding: '1rem 2rem 0', maxWidth: '100%', margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px' }}>
           {tabsData.map((tab, idx) => (
             <button
@@ -772,94 +1025,71 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <main style={{ padding:'1rem 2rem 2rem', maxWidth:'100%', margin:'0 auto' }}>
+      <main style={{ padding:'1rem 2rem 2rem', maxWidth:'100%' }}>
 
-        {/* ── KPI Sections ────────────────────────────────────────── */}
-        <div style={{ marginBottom: '3rem' }}>
-          
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🌊</span> Funnel Volume
-          </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))', gap:'1rem', marginBottom:'2rem' }}>
-            {volumeKpis.map((k, i) => <KPICard key={i} {...k} />)}
+          {/* ── Financial Hero Banner ───────────────────────────────── */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(79,124,255,0.05) 0%, rgba(167,139,250,0.02) 100%)',
+            border: '1px solid rgba(79,124,255,0.2)',
+            borderRadius: '24px',
+            padding: '3rem 2rem',
+            marginBottom: '3rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.03)',
+            maxWidth: '800px',
+            margin: '0 auto 3rem auto'
+          }}>
+            <div style={{
+               position:'absolute', top:'-50%', left:'50%', transform:'translateX(-50%)',
+               width:'400px', height:'400px', background:'var(--green)', filter:'blur(120px)', opacity:0.12, pointerEvents:'none'
+            }} />
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Total Achieved Sales
+            </div>
+            <div style={{ fontSize: '4.5rem', fontWeight: 800, color: 'var(--green)', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 0 40px rgba(0, 255, 0, 0.15)' }}>
+              ${(totals.achieved || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
           </div>
 
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🎯</span> Actions & Outcomes
-          </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))', gap:'1rem', marginBottom:'2rem' }}>
-            {conversionKpis.map((k, i) => <KPICard key={i} {...k} />)}
-          </div>
-
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>📈</span> Conversion Rates
-          </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))', gap:'1rem' }}>
-            {rateKpis.map((k, i) => <KPICard key={i} {...k} />)}
-          </div>
-
-        </div>
-
-        {/* ── Daily Chart Section ───────────────────────────────────────── */}
-        {dailyRows && dailyRows.length > 0 && (
+          {/* ── KPI Sections ────────────────────────────────────────── */}
           <div style={{ marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-              Daily Performance Timeline
+            
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span>🌊</span> Funnel Volume
             </h2>
-            <ChartCard title="📅 Daily Metrics">
-              <DailyChart rows={dailyRows} />
-            </ChartCard>
+            <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'1rem', marginBottom:'3rem' }}>
+              {volumeKpis.map((k, i) => <div key={i} style={{ width: '220px' }}><KPICard {...k} /></div>)}
+            </div>
+
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span>🎯</span> Actions & Outcomes
+            </h2>
+            <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'1rem', marginBottom:'3rem' }}>
+              {conversionKpis.map((k, i) => <div key={i} style={{ width: '220px' }}><KPICard {...k} /></div>)}
+            </div>
+
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span>📈</span> Conversion Rates
+            </h2>
+            <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'1rem' }}>
+              {rateKpis.map((k, i) => <div key={i} style={{ width: '220px' }}><KPICard {...k} /></div>)}
+            </div>
+
           </div>
-        )}
-
-        {/* ── Profile Section ───────────────────────────────────────── */}
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-          Detailed Profile Performance
-        </h2>
-
-        {/* ── Charts ───────────────────────────────────────────── */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:'1.5rem', marginBottom:'2rem' }}>
-          <ChartCard title="📦 Query Pipeline per Profile">
-            <QueryBarChart rows={rows} />
-          </ChartCard>
-          <ChartCard title="📈 Conversion Rates per Profile">
-            <ConversionChart rows={rows} />
-          </ChartCard>
-        </div>
-
-        {/* ── Table ────────────────────────────────────────────── */}
-        <ChartCard title={`📋 Detailed Profile Performance - ${currentTab.tabName}`} noPad>
-          <SalesTable
-            type="PROFILE"
-            rows={rows}
-            totals={totals}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onRowClick={(p) => setSelectedProfile(p)}
-            onCellClick={(metric, rowName) => handleTableDrilldown(metric, rowName, 'PROFILE')}
-            onSort={(k) => {
-              if (k === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-              else { setSortKey(k); setSortDir('desc'); }
-            }}
-          />
-        </ChartCard>
 
         {/* ── Seller Section (Only show if seller rows exist) ──────────────────────── */}
         {sellerRows && sellerRows.length > 0 && (
-          <div style={{ marginTop: '4rem' }}>
+          <div style={{ marginBottom: '4rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
               Detailed Seller Performance
             </h2>
 
-            {/* ── Seller Charts ───────────────────────────────────────────── */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:'1.5rem', marginBottom:'2rem' }}>
-              <ChartCard title="📦 Query Pipeline per Seller">
-                <QueryBarChart rows={sellerRows} />
-              </ChartCard>
-              <ChartCard title="📈 Conversion Rates per Seller">
-                <ConversionChart rows={sellerRows} />
-              </ChartCard>
-            </div>
+
 
             {/* ── Seller Table ────────────────────────────────────────────── */}
             <ChartCard title={`📋 Detailed Seller Performance - ${currentTab.tabName}`} noPad>
@@ -879,6 +1109,34 @@ export default function Dashboard() {
             </ChartCard>
           </div>
         )}
+
+
+
+        {/* ── Profile Section ───────────────────────────────────────── */}
+        <div style={{ marginBottom: '4rem' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+            Detailed Profile Performance
+          </h2>
+
+
+
+          {/* ── Table ────────────────────────────────────────────── */}
+          <ChartCard title={`📋 Detailed Profile Performance - ${currentTab.tabName}`} noPad>
+            <SalesTable
+              type="PROFILE"
+              rows={rows}
+              totals={totals}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onRowClick={(p) => setSelectedProfile(p)}
+              onCellClick={(metric, rowName) => handleTableDrilldown(metric, rowName, 'PROFILE')}
+              onSort={(k) => {
+                if (k === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                else { setSortKey(k); setSortDir('desc'); }
+              }}
+            />
+          </ChartCard>
+        </div>
 
       </main>
 
@@ -995,6 +1253,7 @@ export default function Dashboard() {
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes spin  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       `}</style>
+      </div>
     </div>
   );
 }
