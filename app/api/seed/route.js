@@ -13,8 +13,8 @@ export async function POST(req) {
     const response = await fetch(scriptUrl);
     const data = await response.json(); // Array of { type, tabName, rawData }
 
-    let recordsInserted = 0;
-    let targetsInserted = 0;
+    let targetsToInsert = [];
+    let recordsToInsert = [];
 
     // Clear existing data before seeding
     await Record.deleteMany({});
@@ -40,8 +40,7 @@ export async function POST(req) {
             const name = String(raw[i][nameIdx]).trim();
             const targetAmount = parseFloat(String(raw[i][targetIdx]).replace(/[^0-9.-]/g, '')) || 0;
             if (name) {
-              await Target.create({ name, targetAmount, month: tab.tabName.toLowerCase() });
-              targetsInserted++;
+              targetsToInsert.push({ name, targetAmount, month: tab.tabName.toLowerCase() });
             }
           }
         }
@@ -98,7 +97,7 @@ export async function POST(req) {
             if (!isNaN(parsed.getTime())) dateObj = parsed;
           }
 
-          await Record.create({
+          recordsToInsert.push({
             date: dateObj,
             profileName: profile,
             sellerName: seller,
@@ -110,7 +109,6 @@ export async function POST(req) {
             type: 'MAIN',
             month: tab.tabName
           });
-          recordsInserted++;
         }
       }
       else if (tab.type === 'achieved') {
@@ -144,21 +142,24 @@ export async function POST(req) {
             if (rowStr.includes('special_pxl sales') || rowStr.includes('c_forward_pxl sales')) continue;
 
             if (name) {
-              await Record.create({
+              recordsToInsert.push({
                 date: new Date(), // Achieved rows often don't have a standardized date column, default to now
                 sellerName: name, 
                 amount: achieved,
                 status: status,
-                type: 'ACHIEVED'
+                type: 'ACHIEVED',
+                month: tab.tabName
               });
-              recordsInserted++;
             }
           }
         }
       }
     }
 
-    return NextResponse.json({ success: true, recordsInserted, targetsInserted });
+    if (targetsToInsert.length > 0) await Target.insertMany(targetsToInsert);
+    if (recordsToInsert.length > 0) await Record.insertMany(recordsToInsert);
+
+    return NextResponse.json({ success: true, recordsInserted: recordsToInsert.length, targetsInserted: targetsToInsert.length });
   } catch (error) {
     console.error('Seeding error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

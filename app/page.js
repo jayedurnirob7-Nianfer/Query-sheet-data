@@ -114,13 +114,19 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch from MongoDB Backend ────────────────────────────────
   async function fetchFromScript() {
     setFetching(true);
     setFetchError('');
     try {
-      const res  = await fetch('/api/dashboard');
-      const json = await res.json();
+      let res  = await fetch('/api/dashboard');
+      let json = await res.json();
+
+      // Auto-heal: If database is completely empty, force a sync from Google Sheets
+      if (json.success && (!json.tabsData || json.tabsData.length === 0)) {
+        await fetch('/api/seed', { method: 'POST' });
+        res = await fetch('/api/dashboard');
+        json = await res.json();
+      }
 
       if (!json.success) throw new Error(json.error || 'API returned an error');
 
