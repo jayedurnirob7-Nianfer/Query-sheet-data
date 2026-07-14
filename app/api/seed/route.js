@@ -5,7 +5,15 @@ import Target from '@/models/Target';
 
 export const maxDuration = 60; // Allow 60 seconds on Vercel Hobby
 
+export async function GET(req) {
+  return await runSeed();
+}
+
 export async function POST(req) {
+  return await runSeed();
+}
+
+async function runSeed() {
   try {
     const scriptUrl = "https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec";
     
