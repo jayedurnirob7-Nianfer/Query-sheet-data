@@ -5,13 +5,10 @@ import Target from '@/models/Target';
 
 export async function POST(req) {
   try {
-    const scriptUrl = "https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec";
-
     await dbConnect();
 
-    // Fetch from Google Apps Script
-    const response = await fetch(scriptUrl);
-    const data = await response.json(); // Array of { type, tabName, rawData }
+    const { sheetData } = await req.json();
+    const data = sheetData;
 
     let targetsToInsert = [];
     let recordsToInsert = [];

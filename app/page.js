@@ -104,7 +104,7 @@ export default function Dashboard() {
       const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 3), 60000);
       const autoSync = setInterval(async () => {
         try {
-          await fetch('/api/seed', { method: 'POST' });
+          await executeSeed();
           await fetchFromScript();
         } catch(e) {}
       }, 3 * 60 * 1000);
@@ -123,7 +123,7 @@ export default function Dashboard() {
 
       // Auto-heal: If database is completely empty, force a sync from Google Sheets
       if (json.success && (!json.tabsData || json.tabsData.length === 0)) {
-        await fetch('/api/seed', { method: 'POST' });
+        await executeSeed();
         res = await fetch('/api/dashboard');
         json = await res.json();
       }
@@ -145,6 +145,21 @@ export default function Dashboard() {
       setFetchError(`Error: ${err.message}`);
     } finally {
       setFetching(false);
+    }
+  }
+
+  async function executeSeed() {
+    try {
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec";
+      const sheetRes = await fetch(scriptUrl);
+      const sheetData = await sheetRes.json();
+      await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetData })
+      });
+    } catch (e) {
+      console.error("Seed execution failed", e);
     }
   }
 
@@ -192,7 +207,7 @@ export default function Dashboard() {
   const handleRefresh = async () => {
     setFetching(true);
     try {
-      await fetch('/api/seed', { method: 'POST' });
+      await executeSeed();
       await fetchFromScript();
     } catch(e) {
       setFetching(false);
