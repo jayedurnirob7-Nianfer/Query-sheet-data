@@ -3,12 +3,17 @@ import dbConnect from '@/lib/db';
 import Record from '@/models/Record';
 import Target from '@/models/Target';
 
+export const maxDuration = 60; // Allow 60 seconds on Vercel Hobby
+
 export async function POST(req) {
   try {
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec";
+    
     await dbConnect();
 
-    const { sheetData } = await req.json();
-    const data = sheetData;
+    // Fetch from Google Apps Script on the backend
+    const response = await fetch(scriptUrl);
+    const data = await response.json();
 
     let targetsToInsert = [];
     let recordsToInsert = [];

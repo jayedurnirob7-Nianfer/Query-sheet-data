@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import Record from '@/models/Record';
 import Target from '@/models/Target';
 
+export const maxDuration = 60;
+
 export async function GET(req) {
   try {
     await dbConnect();
