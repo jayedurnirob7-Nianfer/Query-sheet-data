@@ -5,8 +5,7 @@ import Target from '@/models/Target';
 
 export async function POST(req) {
   try {
-    const { scriptUrl } = await req.json();
-    if (!scriptUrl) return NextResponse.json({ error: 'Missing scriptUrl' }, { status: 400 });
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbwZ9dWtU3mjCPh2xR3-oksFarjQSkc0yIvBvg0H_tVEnndrKG_mgIbmbrYOghpfGjqV/exec";
 
     await dbConnect();
 
@@ -108,7 +107,8 @@ export async function POST(req) {
             clientUrl: clientUrlIdx !== -1 ? String(raw[i][clientUrlIdx]).trim() : '',
             serviceLine: serviceLineIdx !== -1 ? String(raw[i][serviceLineIdx]).trim() : '',
             amount: amountIdx !== -1 ? (parseFloat(String(raw[i][amountIdx]).replace(/[^0-9.-]/g, '')) || 0) : 0,
-            type: 'MAIN'
+            type: 'MAIN',
+            month: tab.tabName
           });
           recordsInserted++;
         }

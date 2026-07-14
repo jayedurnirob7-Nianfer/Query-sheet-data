@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { get, set } from 'idb-keyval';
 import KPICard         from '@/components/KPICard';
 import SalesTable      from '@/components/SalesTable';
 import QueryBarChart   from '@/components/QueryBarChart';
@@ -83,29 +84,32 @@ export default function Dashboard() {
   // ── Auto-fetch on mount if URL is saved ──────────────────────
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('mein_dashboard_cache');
-      const cachedTime = localStorage.getItem('mein_dashboard_cache_time');
-      if (cached) {
+      const loadCache = async () => {
         try {
-          const parsed = JSON.parse(cached);
-          if (parsed && parsed.length > 0) {
-            setTabsData(parsed);
+          const cached = await get('mein_dashboard_cache_full');
+          const cachedTime = await get('mein_dashboard_cache_time');
+          if (cached && cached.length > 0) {
+            setTabsData(cached);
             if (cachedTime) {
               const diffMins = Math.floor((Date.now() - parseInt(cachedTime)) / 60000);
-              setMinsLeft(Math.max(0, 60 - diffMins));
+              setMinsLeft(Math.max(0, 3 - diffMins));
             }
           }
         } catch(e) { console.error('Failed to parse cache', e); }
-      }
+      };
+      loadCache();
 
       fetchFromScript();
 
-      const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 60), 60000);
-      const refresh = setInterval(() => {
-        fetchFromScript();
-      }, REFRESH_MS);
+      const tick = setInterval(() => setMinsLeft(m => m > 0 ? m - 1 : 3), 60000);
+      const autoSync = setInterval(async () => {
+        try {
+          await fetch('/api/seed', { method: 'POST' });
+          await fetchFromScript();
+        } catch(e) {}
+      }, 3 * 60 * 1000);
 
-      return () => { clearInterval(tick); clearInterval(refresh); };
+      return () => { clearInterval(tick); clearInterval(autoSync); };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -122,15 +126,11 @@ export default function Dashboard() {
 
       setTabsData(json.tabsData);
       setLastSync(new Date().toLocaleTimeString());
-      setMinsLeft(60);
+      setMinsLeft(3);
       try {
-        const cacheData = json.tabsData.map(tab => {
-          const { drilldown, ...rest } = tab;
-          return rest;
-        });
-        localStorage.setItem('mein_dashboard_cache', JSON.stringify(cacheData));
-        localStorage.setItem('mein_dashboard_cache_time', Date.now().toString());
-      } catch (e) { /* Ignore cache errors silently */ }
+        await set('mein_dashboard_cache_full', json.tabsData);
+        await set('mein_dashboard_cache_time', Date.now());
+      } catch (e) { console.error('IDB save error', e); }
       
       // Keep active tab index valid
       setActiveTab(prev => (prev < json.tabsData.length ? prev : 0));
@@ -183,8 +183,14 @@ export default function Dashboard() {
     fetchFromScript(url);
   };
 
-  const handleRefresh = () => {
-    fetchFromScript();
+  const handleRefresh = async () => {
+    setFetching(true);
+    try {
+      await fetch('/api/seed', { method: 'POST' });
+      await fetchFromScript();
+    } catch(e) {
+      setFetching(false);
+    }
   };
 
   // If there's no data yet, show the header and a loading state
