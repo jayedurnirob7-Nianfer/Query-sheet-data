@@ -146,7 +146,12 @@ export async function GET(req) {
 
       const parsedTotals = calcRatios(masterTotal);
 
-      const matchName = (full, short) => full.toLowerCase().includes(short) || short.includes(full.toLowerCase());
+      const matchName = (full, short) => {
+        const f = full.toLowerCase();
+        const s = short.toLowerCase();
+        if ((s === 'dipu' && f.includes('hasib')) || (f.includes('dipu') && s === 'hasib')) return true;
+        return f.includes(s) || s.includes(f);
+      };
       
       const tData = {};
       tabTargets.forEach(t => tData[t.name.toLowerCase()] = t.targetAmount);
@@ -212,19 +217,14 @@ export async function GET(req) {
       const m = t.month || 'Unknown';
       let tabName = m;
       if (m.toLowerCase().includes('target & achivment')) {
-        tabName = m.split('_')[0] + '_26'; // Assuming 2026
+        const p = m.split('_')[0];
+        tabName = p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() + '_26'; 
       }
       if (!targetsByMonth[tabName]) targetsByMonth[tabName] = [];
       targetsByMonth[tabName].push(t);
     });
 
-    // Master Dashboard (All valid monthly records combined)
-    let allValidRecords = [];
-    let allValidTargets = [];
-    Object.values(recordsByMonth).forEach(arr => allValidRecords = allValidRecords.concat(arr));
-    Object.values(targetsByMonth).forEach(arr => allValidTargets = allValidTargets.concat(arr));
-    
-    tabsData.push(processRecords("Master Dashboard", allValidRecords, allValidTargets));
+    // Removed Master Dashboard as requested
 
     // Create individual month tabs
     // To sort properly (e.g. July_26, June_26), parse the tab name into a Date
