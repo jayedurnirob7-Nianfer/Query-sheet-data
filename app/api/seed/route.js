@@ -55,7 +55,7 @@ async function runSeed() {
           }
         }
       } 
-      else if (tab.type === 'raw_log') {
+      else if (tab.type === 'raw_log' || tab.type === 'main') {
         // Main Tab logic
         const headerRowIndex = raw.findIndex(row => 
           row.some(cell => String(cell).toLowerCase().includes('profile'))
@@ -71,8 +71,8 @@ async function runSeed() {
           return -1;
         };
         
-        const profileIdx = getIdx(['profile']);
-        const sellerIdx  = getIdx(['seller']);
+        const profileIdx = getIdx(['profile', 'sales person', 'salesperson']);
+        const sellerIdx  = getIdx(['seller', 'sales person', 'salesperson']);
         const statusIdx  = getIdx(['status']);
         const clientNameIdx = getIdx(['client name', 'client']);
         const clientUrlIdx = getIdx(['clients url', 'client url', 'url', 'link']);
