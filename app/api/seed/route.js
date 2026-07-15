@@ -20,8 +20,9 @@ async function runSeed() {
     await dbConnect();
 
     // Fetch from Google Apps Script on the backend
-    const response = await fetch(scriptUrl);
+    const response = await fetch(scriptUrl, { cache: 'no-store' });
     const data = await response.json();
+    const deployVersion = "v2_fixed_columns_no_cache";
 
     let targetsToInsert = [];
     let recordsToInsert = [];
@@ -169,7 +170,7 @@ async function runSeed() {
     if (targetsToInsert.length > 0) await Target.insertMany(targetsToInsert);
     if (recordsToInsert.length > 0) await Record.insertMany(recordsToInsert);
 
-    return NextResponse.json({ success: true, recordsInserted: recordsToInsert.length, targetsInserted: targetsToInsert.length });
+    return NextResponse.json({ success: true, deployVersion, recordsInserted: recordsToInsert.length, targetsInserted: targetsToInsert.length });
   } catch (error) {
     console.error('Seeding error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
